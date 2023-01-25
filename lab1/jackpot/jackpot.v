@@ -25,18 +25,49 @@ module jackpot(
     input [3:0] SWITCHES,
     output [3:0] LEDS
     );
-    reg [3:0] LEDS_r;
+    reg clk_div;
+    reg [31:0] cnt;
+    parameter frequency = 10;//6250000 
+    reg [3:0] LEDS_r,SWITCHES_r;
+    wire [3:0] detect;
     wire hold;
-    always@(posedge clock or posedge reset)begin
-        if(reset) LEDS_r <= 4'b0001;
+    //Frequency_division
+    always@(posedge clock or posedge reset) begin
+        if(reset) begin
+            cnt <= 0;
+            clk_div <= 0;
+        end
         else begin
-            if(!hold) begin
-                if(LEDS_r == 4'b1000) LEDS_r <= 4'b0001;
-                else LEDS_r <= LEDS_r<<1;
+            if(cnt == frequency-1) begin
+                clk_div <=~clk_div;
+                cnt <= 0;
             end
-            else LEDS_r <= 4'b1111;
+            else cnt <= cnt+1;
         end
     end
-   assign  LEDS = (LEDS_r==SWITCHES)? 4'b1111:LEDS_r;
-   assign hold = &LEDS;
+    
+    always@(posedge clk_div or posedge reset) begin
+       if(reset)begin
+            SWITCHES_r <= 0;
+       end
+       else begin
+            SWITCHES_r  <= SWITCHES;
+       end
+    end
+   assign detect = SWITCHES & ~SWITCHES_r;
+        
+   always@(posedge clk_div or posedge reset)begin
+        if(reset) begin
+            LEDS_r <= 4'b0001;
+        end
+        else begin
+            if(hold) LEDS_r <= 4'b1111;
+            else begin
+                if(LEDS_r == 4'b1000) LEDS_r = 4'b0001; 
+                else LEDS_r <= LEDS_r <<1 ;
+            end  
+        end
+    end
+    assign LEDS = LEDS_r == detect? 4'b1111:LEDS_r;
+    assign hold = &LEDS;
 endmodule
